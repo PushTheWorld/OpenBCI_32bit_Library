@@ -1,56 +1,61 @@
 #include <DSPI.h>
+#include <EEPROM.h>
+#include <OpenBCI_Wifi_Master_Definitions.h>
+#include <OpenBCI_Wifi_Master.h>
 #include <OpenBCI_32bit_Library.h>
-#include <OpenBCI_32Bit_Library_Definitions.h>
-
-// THIS IS NOT COMPLETE OR WORKING!
+#include <OpenBCI_32bit_Library_Definitions.h>
 
 void setup() {
   // Bring up the OpenBCI Board
   board.begin();
-  board.beginSecondarySerial();
-
+  // Bring up wifi with rx/tx both true
+  wifi.begin(true, true);
 }
 
 void loop() {
-
-    if (board.streaming) {
-        if (board.channelDataAvailable) {
-            // Read from the ADS(s), store data, set channelDataAvailable flag to false
-            board.updateChannelData();
-
-            if (board.timeSynced) {
-                board.sendChannelDataWithTimeAndRawAux();
-            } else {
-                // Send standard packet with channel data
-                board.sendChannelDataWithRawAux();
-            }
-        }
+  if (board.streaming) {
+    if (board.channelDataAvailable) {
+      // Read from the ADS(s), store data, set channelDataAvailable flag to false
+      board.updateChannelData();
+      // Send the channel data
+      board.sendChannelData();
     }
+  }
 
-    // Check the serial port for new data
-    if (Serial0.available()) {
-        char newChar = board.getCharSerial0();
-        // Read one char and process it
-        board.processChar(newChar);
+  // Used to abort multi part messages
+  if (board.isProcessingMultibyteMsg()) {
+    board.tryMultiAbort();
+  }
 
-        if (newChar == 'h') {
-            Serial1.print("AT");
-        } else if (newChar == 'k') {
-            Serial1.print("AT+RST");
-        } else if (newChar == 'n') {
-            Serial1.print("AT+GMR");
-        } else if (newChar == 'N') {
-            Serial1.print("AT+CWMODE=3");
-        } else if (newChar == 'o') {
-            Serial1.print("AT+CWJAP="",""");
-        } else if (newChar == 'O') {
-            Serial1.print("AT+CWJAP?");
-        } else if (newChar == 'V') {
-            Serial1.print("AT+CWLAP");
-        }
+  // Call to wifi loop
+  wifi.loop();
+
+  // Check serial 0 for new data
+  if (board.hasDataSerial0()) {
+    // Read one char from the serial 0 port
+    char newChar = board.getCharSerial0();
+
+    // Send to the sd library for processing
+    sdProcessChar(newChar);
+
+    // Send to the board library
+    board.processChar(newChar);
+  }
+
+  if (wifi.hasData()) {
+    // Read one char from the wifi shield
+    char newChar = wifi.getChar();
+
+    // Send to the sd library for processing
+    sdProcessChar(newChar);
+
+    // Send to the board library
+    board.processChar(newChar);
+  }
+
+  if (!wifi.sentGains) {
+    if(wifi.present && wifi.tx) {
+      wifi.sendGains(board.numChannels, board.getGains());
     }
-
-    if (board.hasDataSerial1()) {
-        Serial0.write(Serial1.read());
-    }
+  }
 }

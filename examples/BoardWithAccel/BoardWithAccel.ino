@@ -7,11 +7,10 @@ void setup() {
   board.begin();
 
   // Notify the board we want to use accel data
-  board.useAccel = true;
+  board.useAccel(true);
 }
 
 void loop() {
-
   // The main dependency of this single threaded microcontroller is to
   //  stream data from the ADS.
   if (board.streaming) {
@@ -26,11 +25,7 @@ void loop() {
       }
 
       // Send standard packet with channel data
-      if (board.timeSynced) {
-        board.sendChannelDataWithTimeAndAccel();
-      } else {
-        board.sendChannelDataWithAccel();
-      }
+      board.sendChannelData();
     }
   }
 
@@ -38,5 +33,10 @@ void loop() {
   if (board.hasDataSerial0()) {
     // Read one char and process it
     board.processChar(board.getCharSerial0());
+  }
+  
+  // Used to abort multi part messages
+  if (board.isProcessingMultibyteMsg()) {
+    board.tryMultiAbort();
   }
 }

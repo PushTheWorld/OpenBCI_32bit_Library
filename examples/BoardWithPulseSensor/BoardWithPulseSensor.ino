@@ -35,7 +35,7 @@ void setup() {
   board.begin();
 
   // Notify the board we want to use aux data, this effects `::sendChannelData()`
-  board.useAux = true;
+  board.useAccel(false);
 
   // make an 'I'm alive' blink
   for(int i=0; i<3; i++){
@@ -46,7 +46,6 @@ void setup() {
 }
 
 void loop() {
-
   // The main dependency of this single threaded microcontroller is to
   //  stream data from the ADS.
   if (board.streaming) {
@@ -66,6 +65,10 @@ void loop() {
   // Check the serial port for new data
   if (board.hasDataSerial0()) {
     // Read one char and process it
-    board.processChar(board.readOneSerialChar());
+    board.processChar(board.getCharSerial0());
+  }
+  // Used to abort multi part messages
+  if (board.isProcessingMultibyteMsg()) {
+    board.tryMultiAbort();
   }
 }
